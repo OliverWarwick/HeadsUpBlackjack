@@ -13,7 +13,7 @@ class Card:
         # Dictionary holding the values
         # Used to seperate out the 4 values of 10.
 
-        valueLookUpDict = {"Ace": 14, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10, "Jack": 11, "Queen": 12, "King": 13}
+        valueLookUpDict = {"Ace": 11, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10, "Jack": 10, "Queen": 10, "King": 10}
 
         try:
             numValue = valueLookUpDict.get(self.value)

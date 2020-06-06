@@ -7,6 +7,9 @@ class Card:
         self.suit = suit
         self.value = value
 
+    '''
+    Method to convert the string of the card into the underlying numeric value
+    '''
 
     def getNumericValue(self):
 
@@ -21,3 +24,10 @@ class Card:
             numValue = 0
 
         return numValue
+
+    '''
+    Override method for printing a card
+    '''
+
+    def __str__(self):
+        return "(" + str(self.value) + ", " + str(self.suit) + ")"

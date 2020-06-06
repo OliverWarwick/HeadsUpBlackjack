@@ -12,6 +12,10 @@ class Deck:
         self.numberOfCards = 0
         self.cards = []
 
+    '''
+    Set up the deck
+    '''
+
     def createNewFullDeck(self):
 
         Suits = ["Diamonds", "Spades", "Hearts", "Clubs"]
@@ -24,16 +28,49 @@ class Deck:
         self.numberOfCards = 52
         self.shuffle()
 
-
-    #Shuffle the array of current cards.
     def shuffle(self):
 
         random.shuffle(self.cards)
 
+    def dealAdditionalCard(self, hand):
 
-    def printDeck(self):
+        if self.numberOfCards >= 1:
+            self.numberOfCards -= 1
+            hand.append(self.cards.pop())
+        else:
+            raise EmptyDeckException("1")
 
-        print("Start of deck")
+    def dealInitalCards(self, hand):
+
+        if self.numberOfCards >= 2:
+            self.numberOfCards -= 2
+            hand.append(self.cards.pop())
+            hand.append(self.cards.pop())
+        else:
+            raise EmptyDeckException("2")
+
+
+
+
+    def __str__(self):
+
+        s = "Start of deck\n"
         for card in self.cards:
-            print(card.value)
-        print("End of deck")
+            s += str(card)
+            s += "\n"
+        s += "End of deck"
+        return s
+
+
+class EmptyDeckException(Exception):
+    def __init__(self, *args):
+        if args:
+            self.message = args[0]
+        else: 
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return "EmptyDeckException - attempted to remove {0} card(s) from an empty deck".format(self.message)
+        else: 
+            return "EmptyDeckException"

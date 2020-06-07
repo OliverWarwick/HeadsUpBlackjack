@@ -5,6 +5,9 @@ from Card import Card
 from Deck import Deck
 from Dealer import Dealer
 from Player import Player
+import sys
+from os import path
+import sqlite3
 
 
 class Game(): 
@@ -15,6 +18,66 @@ class Game():
 		self.deck.createNewFullDeck()
 		self.dealer = Dealer(totalToBegin = 1000)
 		self.player = Player(totalToBegin = 1000)
+
+	''' 
+	Checks if the database file exists, if not will create it and set up the tables needed.
+	If so will connect to it and pass back an sqlite3 connector object.
+	'''
+	def setUpDatabaseFile(self):
+
+		if not path.exists("heads_up_database.db"):
+
+			# Create the new file and then build a connection.
+			sqliteConnection = sqlite3.connect('heads_up_database.db')
+			connector = sqliteConnection.cursor()
+
+			# Add the tables we need.
+			create_table_string = """CREATE TABLE card_history (
+										hand_id INTEGER PRIMARY KEY,
+										bet_amount INTEGER NOT NULL,
+										dealer_face_up_card_name TEXT NOT NULL,
+										dealer_face_up_card_value INT NOT NULL,
+										player_card_one_name TEXT,
+										player_card_one_value INT,	
+										player_card_two_name TEXT,
+										player_card_two_value INT,
+										player_card_three_name TEXT,
+										player_card_three_value INT,
+										player_card_four_name TEXT,
+										player_card_four_value INT,
+										player_card_five_name TEXT,
+										player_card_five_value INT,
+										player_total INT,
+										dealer_total INT,
+										player_win INT		
+										);"""					# This will be -1 for dealer
+																# 1 for normal win, and 2 for backjack.
+			connector.execute(create_table_string)	
+
+		try:
+			sqliteConnection = sqlite3.connect('heads_up_database.db')
+			connector = sqliteConnection.cursor()
+			print("Database created and Successfully Connected to SQLite")
+
+		except sqlite3.Error as error:
+			print("Error while connecting to sqlite", error)
+		
+		return connector
+
+	''' 
+	Shut down the link, needs to be called at the end of the program 
+	'''
+	def closeDatabaseConnection(self,connector):
+		try:
+			connector.close()
+			print("The SQLite connection is closed")
+			return True
+		except Exception:
+			return False
+			
+
+
+
 
 
 	''' 
@@ -58,6 +121,27 @@ class Game():
 
 		return winner
 
+	'''
+	Function generates the update query to send to the database. 
+	return :: string
+	'''
+	#def generateQueryForDB(self, winner, playerScore, playerBlackjack, dealerScore)
+	def generateQueryForDB(self):
+		numberOfPlayerCardsDrawn = len(self.player.currentHand)
+
+		query_builder_first = "INSERT INTO card_history (bet_amount, dealer_face_up_card_name, dealer_face_up_card_value)"
+		query_builder_second = " VALUES (" + str(self.player.currentBet) + "," + self.dealer.getFaceUpCard().value + "," + str(self.dealer.getFaceUpCard().getNumericValue())
+
+		full_query = query_builder_first + query_builder_second + ");"
+
+		print(full_query)
+
+		return full_query
+
+
+
+
+
 
 
 
@@ -66,7 +150,7 @@ class Game():
 	This completes one hand of blackjack.
 	'''
 
-	def playOneHand(self):
+	def playOneHand(self, connector):
 
 		# Print out the amount of money the player have, and then ask for a bet amount.
 		self.player.getBetAmountTerminal()
@@ -100,6 +184,12 @@ class Game():
 		# Settle up the bets now
 		winner = self.settleBet()
 
+		print("Writing to database")
+
+		query = self.generateQueryForDB()
+
+		conn.execute(query)
+
 		# Finally set the betting totals back to zero to ensure no spill over, and the hands back to empty.
 		self.player.currentBet = 0
 		self.player.finishedHand = False
@@ -126,6 +216,11 @@ class Game():
 
 
 game = Game()
-game.playGame()
+conn = game.setUpDatabaseFile()
+game.playOneHand(conn)
+conn.execute("SELECT * FROM card_history")
+record = conn.fetchall()
+print(record)
+print("Shut down complete: ", game.closeDatabaseConnection(conn))
 
 

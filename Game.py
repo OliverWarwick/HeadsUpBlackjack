@@ -18,6 +18,10 @@ class Game():
 		self.deck.createNewFullDeck()
 		self.dealer = Dealer(totalToBegin = 1000)
 		self.player = Player(totalToBegin = 1000)
+		self.sqliteConnection = None
+		self.cursor = None
+
+
 
 	''' 
 	Checks if the database file exists, if not will create it and set up the tables needed.
@@ -28,48 +32,41 @@ class Game():
 		if not path.exists("heads_up_database.db"):
 
 			# Create the new file and then build a connection.
-			sqliteConnection = sqlite3.connect('heads_up_database.db')
-			connector = sqliteConnection.cursor()
+			self.sqliteConnection = sqlite3.connect('heads_up_database.db')
+			self.connector = self.sqliteConnection.cursor()
 
 			# Add the tables we need.
 			create_table_string = """CREATE TABLE card_history (
 										hand_id INTEGER PRIMARY KEY,
 										bet_amount INTEGER NOT NULL,
-										dealer_face_up_card_name TEXT NOT NULL,
 										dealer_face_up_card_value INT NOT NULL,
-										player_card_one_name TEXT,
 										player_card_one_value INT,	
-										player_card_two_name TEXT,
 										player_card_two_value INT,
-										player_card_three_name TEXT,
 										player_card_three_value INT,
-										player_card_four_name TEXT,
 										player_card_four_value INT,
-										player_card_five_name TEXT,
 										player_card_five_value INT,
 										player_total INT,
 										dealer_total INT,
 										player_win INT		
 										);"""					# This will be -1 for dealer
 																# 1 for normal win, and 2 for backjack.
-			connector.execute(create_table_string)	
-
+			self.connector.execute(create_table_string)	
+			self.sqliteConnection.commit()
 		try:
-			sqliteConnection = sqlite3.connect('heads_up_database.db')
-			connector = sqliteConnection.cursor()
+			self.sqliteConnection = sqlite3.connect('heads_up_database.db')
+			self.connector = self.sqliteConnection.cursor()
 			print("Database created and Successfully Connected to SQLite")
 
 		except sqlite3.Error as error:
 			print("Error while connecting to sqlite", error)
 		
-		return connector
-
 	''' 
 	Shut down the link, needs to be called at the end of the program 
 	'''
-	def closeDatabaseConnection(self,connector):
+	def closeDatabaseConnection(self):
 		try:
-			connector.close()
+			self.connector.close()
+			self.sqliteConnection.close()
 			print("The SQLite connection is closed")
 			return True
 		except Exception:
@@ -121,18 +118,45 @@ class Game():
 
 		return winner
 
+
 	'''
 	Function generates the update query to send to the database. 
+	input:
+		playerScore :: int
+		dealerScore :: int
+		playerBlackjack :: bool
+		winner :: string
 	return :: string
 	'''
-	#def generateQueryForDB(self, winner, playerScore, playerBlackjack, dealerScore)
-	def generateQueryForDB(self):
-		numberOfPlayerCardsDrawn = len(self.player.currentHand)
+	
+	def generateQueryForDB(self, playerScore, dealerScore, playerBlackjack, winner):
+		
 
-		query_builder_first = "INSERT INTO card_history (bet_amount, dealer_face_up_card_name, dealer_face_up_card_value)"
-		query_builder_second = " VALUES (" + str(self.player.currentBet) + "," + self.dealer.getFaceUpCard().value + "," + str(self.dealer.getFaceUpCard().getNumericValue())
+		query_builder_first_line = "INSERT INTO card_history (bet_amount, dealer_face_up_card_value,"
+		
+		print(len(self.player.currentHand))
 
-		full_query = query_builder_first + query_builder_second + ");"
+		numberOfPlayerCardsDrawn = min(len(self.player.currentHand),5)
+		col_names = ["player_card_one_value", "player_card_two_value","player_card_three_value", "player_card_four_value", "player_card_five_value"]
+		for i in range(0,numberOfPlayerCardsDrawn):				# Add in all the cards
+			query_builder_first_line += (col_names[i] + ",")
+		query_builder_first_line += "player_total,dealer_total,player_win)"		# Add in the final columns
+
+		query_builder_second_line = " VALUES (" + str(self.player.currentBet) + "," + \
+								str(self.dealer.getFaceUpCard().getNumericValue()) + ","
+		
+		for j in range(0,numberOfPlayerCardsDrawn):		# Add in all the values
+			query_builder_second_line += (str(self.player.currentHand[j].getNumericValue()) + ",")
+		query_builder_second_line += (str(playerScore) + "," + str(dealerScore) + ",")
+
+		if winner == "Player" and playerBlackjack == True:
+			query_builder_second_line += str(2)
+		elif winner == "Player":
+			query_builder_second_line += str(1)
+		else:
+			query_builder_second_line += str(-1)
+
+		full_query = query_builder_first_line + query_builder_second_line + ");"
 
 		print(full_query)
 
@@ -150,7 +174,7 @@ class Game():
 	This completes one hand of blackjack.
 	'''
 
-	def playOneHand(self, connector):
+	def playOneHand(self):
 
 		# Print out the amount of money the player have, and then ask for a bet amount.
 		self.player.getBetAmountTerminal()
@@ -186,9 +210,10 @@ class Game():
 
 		print("Writing to database")
 
-		query = self.generateQueryForDB()
+		query = self.generateQueryForDB(self.player.getHandScore(), self.dealer.getHandScore(), self.player.isBlackjack(), winner)
 
-		conn.execute(query)
+		self.connector.execute(query)
+		self.sqliteConnection.commit()
 
 		# Finally set the betting totals back to zero to ensure no spill over, and the hands back to empty.
 		self.player.currentBet = 0
@@ -202,25 +227,26 @@ class Game():
 		print("Player's current total {0}".format(self.player.currentMoney))
 		print("End of hand\n")
 
-		playAgain = input("Would you like to play again? (Y/N) ")
-		return playAgain
+		ask = input("Would you like to play again? (Y/N) ")
+		return ask.startswith("Y")
+			
 
 
 
 	def playGame(self):
 
 		playAgain = True
-		while playAgain and self.player.currentMoney > 0:
+		while playAgain and self.player.currentMoney > 0 and self.deck.numberOfCards > 10:
 			playAgain = self.playOneHand()
 
 
 
 game = Game()
-conn = game.setUpDatabaseFile()
-game.playOneHand(conn)
-conn.execute("SELECT * FROM card_history")
-record = conn.fetchall()
+game.setUpDatabaseFile()
+game.playGame()
+game.connector.execute("SELECT * FROM card_history")
+record = game.connector.fetchall()
 print(record)
-print("Shut down complete: ", game.closeDatabaseConnection(conn))
+print("Shut down complete: ", game.closeDatabaseConnection())
 
 

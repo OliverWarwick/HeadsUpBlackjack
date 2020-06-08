@@ -5,6 +5,7 @@ from Card import Card
 from Deck import Deck
 from Dealer import Dealer
 from Player import Player
+from AIPlayer import AIPlayer
 import sys
 from os import path
 import sqlite3
@@ -17,11 +18,9 @@ class Game():
 		self.deck = Deck()
 		self.deck.createNewFullDeck()
 		self.dealer = Dealer(totalToBegin = 1000)
-		self.player = Player(totalToBegin = 1000)
+		self.player = AIPlayer(totalToBegin = 100000000)
 		self.sqliteConnection = None
 		self.cursor = None
-
-
 
 	''' 
 	Checks if the database file exists, if not will create it and set up the tables needed.
@@ -72,10 +71,6 @@ class Game():
 		except Exception:
 			return False
 			
-
-
-
-
 
 	''' 
 	Function to evaluate the result of a bet after the player and dealer have completed
@@ -129,13 +124,11 @@ class Game():
 	return :: string
 	'''
 	
-	def generateQueryForDB(self, playerScore, dealerScore, playerBlackjack, winner):
+	def generateQueryForDB(self, playerScore, dealerScore, playerBlackjack, winner, verbose = False):
 		
 
 		query_builder_first_line = "INSERT INTO card_history (bet_amount, dealer_face_up_card_value,"
 		
-		print(len(self.player.currentHand))
-
 		numberOfPlayerCardsDrawn = min(len(self.player.currentHand),5)
 		col_names = ["player_card_one_value", "player_card_two_value","player_card_three_value", "player_card_four_value", "player_card_five_value"]
 		for i in range(0,numberOfPlayerCardsDrawn):				# Add in all the cards
@@ -158,7 +151,8 @@ class Game():
 
 		full_query = query_builder_first_line + query_builder_second_line + ");"
 
-		print(full_query)
+		if verbose:
+			print(full_query)
 
 		return full_query
 
@@ -174,7 +168,7 @@ class Game():
 	This completes one hand of blackjack.
 	'''
 
-	def playOneHand(self):
+	def playOneHand(self, setting = "Explore", verbose = False):
 
 		# Print out the amount of money the player have, and then ask for a bet amount.
 		self.player.getBetAmountTerminal()
@@ -184,16 +178,22 @@ class Game():
 		self.deck.dealInitalCards(self.player.currentHand)
 
 		# Display the cards the player has as well as the face up dealer card.
-		print()
-		self.player.printHand()
-		self.dealer.printFaceUpCard()
+		if verbose:
+			print()
+			self.player.printHand()
+			self.dealer.printFaceUpCard()
 
 		# Query if the player would like another card.
 		while not self.player.finishedHand:
-			playerResponse = self.player.getResponseTerminal(self.dealer.getFaceUpCard())
+			if setting == "Explore":
+				playerResponse = self.player.getResponseExploration(self.dealer.getFaceUpCard())
+			else:
+				playerResponse = self.player.getResponseExploitation(self.dealer.getFaceUpCard(), self.sqliteConnection)
 			if playerResponse == "HIT":
 				self.deck.dealAdditionalCard(self.player.currentHand)
-				self.player.printHand()
+				
+				if verbose: 
+					self.player.printHand()
 
 		# Then allow the dealer to play out their hand.
 		while not self.dealer.finishedHand:
@@ -202,15 +202,17 @@ class Game():
 				self.deck.dealAdditionalCard(self.dealer.currentHand)
 
 		# Print out both of the hands.
-		self.player.printHand()
-		self.dealer.printFullHand()
+		if verbose:
+			self.player.printHand()
+			self.dealer.printFullHand()
 
 		# Settle up the bets now
 		winner = self.settleBet()
 
-		print("Writing to database")
+		if verbose:
+			print("Writing to database")
 
-		query = self.generateQueryForDB(self.player.getHandScore(), self.dealer.getHandScore(), self.player.isBlackjack(), winner)
+		query = self.generateQueryForDB(self.player.getHandScore(), self.dealer.getHandScore(), self.player.isBlackjack(), winner, verbose)
 
 		self.connector.execute(query)
 		self.sqliteConnection.commit()
@@ -223,11 +225,13 @@ class Game():
 		self.dealer.finishedHand = False
 
 		# Print out the new game state.
-		print("Winner of the hand: {0}".format(winner))
-		print("Player's current total {0}".format(self.player.currentMoney))
-		print("End of hand\n")
+		if verbose:
+			print("Winner of the hand: {0}".format(winner))
+			print("Player's current total {0}".format(self.player.currentMoney))
+			print("End of hand\n")
 
-		ask = input("Would you like to play again? (Y/N) ")
+		# ask = input("Would you like to play again? (Y/N) ")
+		ask = "Yes"
 		return ask.startswith("Y")
 			
 
@@ -235,18 +239,36 @@ class Game():
 
 	def playGame(self):
 
-		playAgain = True
-		while playAgain and self.player.currentMoney > 0 and self.deck.numberOfCards > 10:
-			playAgain = self.playOneHand()
+		set_up = "Explore"
+		# for i in range(0,1000):
+
+		# for i in range(0,100):
+			# for j in range(0,100):
+			# 	count = 0
+			# 	while count < 5 and self.player.currentMoney > 0 and self.deck.numberOfCards > 10:
+			# 		playAgain = self.playOneHand(set_up, verbose = False)
+			# 		count += 1
+			# 	# Create new deck.
+			# 	self.deck = Deck()
+			# 	self.deck.createNewFullDeck()
+
+
+			# print("Completed cycle: ", str(i))
+
+		set_up = "Exploit"
+		for i in range(0,5):
+			playAgain = self.playOneHand(set_up, verbose = True)
+
+		
 
 
 
 game = Game()
 game.setUpDatabaseFile()
 game.playGame()
-game.connector.execute("SELECT * FROM card_history")
-record = game.connector.fetchall()
-print(record)
+# game.connector.execute("SELECT * FROM card_history")
+# record = game.connector.fetchall()
+# print(record)
 print("Shut down complete: ", game.closeDatabaseConnection())
 
 

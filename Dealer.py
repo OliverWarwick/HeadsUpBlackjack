@@ -18,14 +18,11 @@ class Dealer(Player):
 
 	''' Dealer should hit on another up to and including 16. Will also STAND if the player is bust'''
 	def getDealerResponse(self, playerScore):
-		if self.getHandScore() > 16 or playerScore > 21:
+		if self.getHandScore() > 16:
 			self.finishedHand = True
 			return "STAND"
 		else:
 			return "HIT"
-
-
-
 
 
 

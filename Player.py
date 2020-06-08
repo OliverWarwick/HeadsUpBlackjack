@@ -31,7 +31,7 @@ class Player():
 					self.currentBet = betAmount
 					betPossible = True
 
-		return betPossible
+		return betAmount
 
 	'''
 	ResponseTerminal method. 
@@ -98,7 +98,7 @@ class Player():
 	:return: Boolean.
 	"""
 	def isBlackjack(self):
-		return (self.getHandScore() == 21) and (len(self.currentCards) == 2)
+		return (self.getHandScore() == 21) and (len(self.currentHand) == 2)
 
 
 

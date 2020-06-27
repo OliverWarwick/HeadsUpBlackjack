@@ -25,7 +25,7 @@ class AIPlayer(Player):
 				self.currentBet = self.currentMoney
 
 
-	# Extra chance
+	# Extra chance - see if this works
 
 
 	# TODO - figure out how to make it so that it checks for a permuation of the 

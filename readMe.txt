@@ -1,2 +1,2 @@
 Simply run the Game.py file for the text based version of the game
-Dependencies: None.
+Dependencies: Pandas, Numpy.

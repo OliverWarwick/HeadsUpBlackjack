@@ -9,6 +9,9 @@ from AIPlayer import AIPlayer
 import sys
 from os import path
 import sqlite3
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
 class Game(): 
@@ -18,9 +21,10 @@ class Game():
 		self.deck = Deck()
 		self.deck.createNewFullDeck()
 		self.dealer = Dealer(totalToBegin = 1000)
-		self.player = AIPlayer(totalToBegin = 100000000)
+		self.player = AIPlayer(totalToBegin = 1000000000)
 		self.sqliteConnection = None
 		self.cursor = None
+		self.playerHistory = []
 
 	''' 
 	Checks if the database file exists, if not will create it and set up the tables needed.
@@ -46,7 +50,8 @@ class Game():
 										player_card_five_value INT,
 										player_total INT,
 										dealer_total INT,
-										player_win INT		
+										player_win INT, 
+										setting TEXT		
 										);"""					# This will be -1 for dealer
 																# 1 for normal win, and 2 for backjack.
 			self.connector.execute(create_table_string)	
@@ -126,14 +131,13 @@ class Game():
 	
 	def generateQueryForDB(self, playerScore, dealerScore, playerBlackjack, winner, verbose = False):
 		
-
 		query_builder_first_line = "INSERT INTO card_history (bet_amount, dealer_face_up_card_value,"
 		
 		numberOfPlayerCardsDrawn = min(len(self.player.currentHand),5)
 		col_names = ["player_card_one_value", "player_card_two_value","player_card_three_value", "player_card_four_value", "player_card_five_value"]
 		for i in range(0,numberOfPlayerCardsDrawn):				# Add in all the cards
 			query_builder_first_line += (col_names[i] + ",")
-		query_builder_first_line += "player_total,dealer_total,player_win)"		# Add in the final columns
+		query_builder_first_line += "player_total,dealer_total,player_win,setting)"		# Add in the final columns
 
 		query_builder_second_line = " VALUES (" + str(self.player.currentBet) + "," + \
 								str(self.dealer.getFaceUpCard().getNumericValue()) + ","
@@ -149,6 +153,7 @@ class Game():
 		else:
 			query_builder_second_line += str(-1)
 
+		query_builder_second_line += ",?"
 		full_query = query_builder_first_line + query_builder_second_line + ");"
 
 		if verbose:
@@ -186,9 +191,9 @@ class Game():
 		# Query if the player would like another card.
 		while not self.player.finishedHand:
 			if setting == "Explore":
-				playerResponse = self.player.getResponseExploration(self.dealer.getFaceUpCard())
+				playerResponse = self.player.getResponseExploration(self.dealer.getFaceUpCard(), verbose)
 			else:
-				playerResponse = self.player.getResponseExploitation(self.dealer.getFaceUpCard(), self.sqliteConnection)
+				playerResponse = self.player.getResponseExploitation(self.dealer.getFaceUpCard(), self.sqliteConnection, verbose)
 			if playerResponse == "HIT":
 				self.deck.dealAdditionalCard(self.player.currentHand)
 				
@@ -214,8 +219,9 @@ class Game():
 
 		query = self.generateQueryForDB(self.player.getHandScore(), self.dealer.getHandScore(), self.player.isBlackjack(), winner, verbose)
 
-		self.connector.execute(query)
-		self.sqliteConnection.commit()
+		# SQLite means you need to pass any string varibles as 
+		# self.connector.execute(query, (setting, ))
+		# self.sqliteConnection.commit()
 
 		# Finally set the betting totals back to zero to ensure no spill over, and the hands back to empty.
 		self.player.currentBet = 0
@@ -236,39 +242,136 @@ class Game():
 			
 
 
-
+	# Normal method for game play.
 	def playGame(self):
 
-		set_up = "Explore"
-		# for i in range(0,1000):
-
-		# for i in range(0,100):
-			# for j in range(0,100):
-			# 	count = 0
-			# 	while count < 5 and self.player.currentMoney > 0 and self.deck.numberOfCards > 10:
-			# 		playAgain = self.playOneHand(set_up, verbose = False)
-			# 		count += 1
-			# 	# Create new deck.
-			# 	self.deck = Deck()
-			# 	self.deck.createNewFullDeck()
+		# Explore Stage
+		for i in range(0,2):
+			for j in range(0,10):
+				count = 0
+				while count < 5 and self.player.currentMoney > 0 and self.deck.numberOfCards > 10:
+					playAgain = self.playOneHand("Explore", verbose = False)
+					count += 1
+				# Create new deck.
+				self.deck = Deck()
+				self.deck.createNewFullDeck()
 
 
-			# print("Completed cycle: ", str(i))
+			print("Completed cycle: ", str(i))
 
-		set_up = "Exploit"
-		for i in range(0,5):
-			playAgain = self.playOneHand(set_up, verbose = True)
+		# Exploit stage
+		for i in range(0,100):
+			for i in range(0,5):
+				playAgain = self.playOneHand("Exploit", verbose = False)
+				self.playerHistory.append(self.player.currentMoney - 1000000000)
 
+			self.deck = Deck()
+			self.deck.createNewFullDeck()
+
+		print(self.playerHistory)
+
+
+
+
+
+
+	# Just computer methods.
+
+	# Shortcut method for playgame where we use exploration at first.
+	def explore(self, trials = 1000):
+
+		number_of_runs = trials // 100
+
+		for i in range(0,100):
+			for j in range(0,number_of_runs):
+				count = 0
+				while count < 5 and self.player.currentMoney > 0 and self.deck.numberOfCards > 10:
+					playAgain = self.playOneHand("Explore", verbose = False)
+					count += 1
+				# Create new deck.
+				self.deck = Deck()
+				self.deck.createNewFullDeck()
+			print("Exploration Percentage Complete: ", i)
+
+
+	# Trial is the number of trials to use in total.
+	# Batch size is the number of deck burns to go through.
+
+
+	def exploit(self, trial_number, batch_size, dataFrame):
+
+		for i in range(0,trial_number):
+
+			# Want to reset the player, and the deck after each batch.
+			self.player = AIPlayer(totalToBegin = 10000000)
+			self.playerHistory = []
+
+			# For each batch play several hands and record the result before setting up a new deck.
+			for j in range(0,batch_size):
+
+				self.deck = Deck()
+				self.deck.createNewFullDeck()
+
+				count = 0
+				while count < 5 and self.player.currentMoney > 0 and self.deck.numberOfCards > 10:
+					playAgain = self.playOneHand("Exploit", verbose = False)
+					count += 1
+					self.playerHistory.append(self.player.currentMoney - 10000000)
+
+
+			# Then use the playerHistory to calculate important stats.
+
+			end_p_l = self.playerHistory[-1]
+			min_pos = min(self.playerHistory)
+			max_pos = max(self.playerHistory)
+			mean_pos = np.mean(self.playerHistory)
+			varience = np.var(self.playerHistory)
+
+			print("Trial Number: ", i)
+			print(self.playerHistory[-10:])
+			print("End: ", end_p_l)
+			print("Mean: ", mean_pos)
+
+			dataFrame = dataFrame.append({'Trial Number': i, 'History': self.playerHistory, 'End': end_p_l, 'Mean': mean_pos, 'Min': min_pos, 'Max': max_pos, 'Varience': varience}, ignore_index=True)
 		
+		return dataFrame
 
 
+df_results = pd.DataFrame(columns=['Trial Number','History','End','Mean','Min','Max', "Varience"])
+
+
+
+# For now just naively explore.
+
+explore_runs = [500000, 100000, 100000, 50000, 50000]
 
 game = Game()
 game.setUpDatabaseFile()
-game.playGame()
+for i in range(0,5):
+	game.explore(trials = explore_runs[i])
+	df_results = game.exploit(trial_number = 5, batch_size = 1000, dataFrame = df_results)
 # game.connector.execute("SELECT * FROM card_history")
 # record = game.connector.fetchall()
 # print(record)
 print("Shut down complete: ", game.closeDatabaseConnection())
+
+
+
+
+z = np.polyfit(x=df_results.index, y=df_results.loc[:, "Mean"], deg=1)
+p = np.poly1d(z)
+df_results['Trendline'] = p(df_results.index)
+print(df_results)
+
+
+df_results.to_csv("results")
+
+plt.plot(df_results["Min"], color='red', label='Min Value', alpha = 0.25)
+plt.plot(df_results["Max"], color='green', label='Min Value', alpha = 0.25)
+plt.plot(df_results['Mean'], color='blue', label='Mean Value')
+plt.plot(df_results['Trendline'], color='blue', label='Trend', alpha = 0.5)
+
+plt.title("Mean value over time")
+plt.show()
 
 

@@ -5,7 +5,7 @@ class Player():
 
 	def __init__(self, totalToBegin = 1000):
 
-		self.currentMoney = totalToBegin
+		self.currentMoney = 0
 		self.currentHand = []
 		self.currentBet = 0
 		self.finishedHand = False
@@ -17,12 +17,11 @@ class Player():
 	larger than the current balance, and if so throws exception of empty account. 
 	Will loop until the bet is possible.
 	'''
-
 	def getBetAmountTerminal(self):
 
 		if self.currentMoney <= 0:
 			raise ValueError("Insufficent funds to continue playing")
-		else: 
+		else:
 			betPossible = False
 			while not betPossible:
 				print("Current balance: {0}".format(self.currentMoney))

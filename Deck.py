@@ -16,7 +16,7 @@ class Deck:
     Set up the deck
     '''
 
-    def createNewFullDeck(self):
+    def createNewFullDeck(self, shuffle=True):
 
         Suits = ["Diamonds", "Spades", "Hearts", "Clubs"]
         Values = ["Ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King"]
@@ -26,7 +26,8 @@ class Deck:
                 self.cards.append(Card(s,v))
 
         self.numberOfCards = 52
-        self.shuffle()
+        if shuffle:
+            self.shuffle()
 
     def shuffle(self):
 
@@ -48,7 +49,6 @@ class Deck:
             hand.append(self.cards.pop())
         else:
             raise EmptyDeckException("2")
-
 
 
 

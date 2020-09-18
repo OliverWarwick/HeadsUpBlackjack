@@ -10,7 +10,6 @@ class Card:
     '''
     Method to convert the string of the card into the underlying numeric value
     '''
-
     def getNumericValue(self):
 
         # Dictionary holding the values
@@ -20,7 +19,7 @@ class Card:
 
         try:
             numValue = valueLookUpDict.get(self.value)
-        except:
+        except Exception:
             numValue = 0
 
         return numValue
@@ -28,6 +27,5 @@ class Card:
     '''
     Override method for printing a card
     '''
-
     def __str__(self):
         return "(" + str(self.value) + ", " + str(self.suit) + ")"

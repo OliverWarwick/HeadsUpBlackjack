@@ -28,9 +28,6 @@ class AIPlayer(Player):
 	# Extra chance - see if this works
 
 
-	# TODO - figure out how to make it so that it checks for a permuation of the 
-	# card numbers and not an exact match.
-
 	# Also then need to calculate how many of those wins came from hit and 
 	# how many came from stand.
 

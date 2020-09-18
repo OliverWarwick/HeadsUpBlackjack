@@ -19,6 +19,8 @@ class Player():
 	'''
 	def getBetAmountTerminal(self):
 
+		# Some small change.
+
 		if self.currentMoney <= 0:
 			raise ValueError("Insufficent funds to continue playing")
 		else:
